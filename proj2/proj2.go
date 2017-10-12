@@ -43,6 +43,7 @@ import (
 	// IF you call functions in here directly, YOU WILL LOSE POINTS
 	// EVEN IF YOUR CODE IS CORRECT!!!!!
 	"crypto/rsa"
+	//"crypto/cipher"
 )
 
 
@@ -116,6 +117,9 @@ func debugMsg(format string, args ...interface{}) {
 type User struct {
 	Username string
 	Key *rsa.PrivateKey
+	Password string
+	Sizemap map[string]int
+	Cfbkeymap map[string][]byte
 	// You can add other fields here if you want...
 	// Note for JSON to marshal/unmarshal, the fields need to
 	// be public (start with a capital letter)
@@ -141,7 +145,7 @@ type User struct {
 func InitUser(username string, password string) (userdataptr *User, err error){
 	var userdata User
 	key, err := userlib.GenerateRSAKey()
-	userdata = User{Username: username, Key: key}
+	userdata = User{Username: username, Key: key, Password: password, Sizemap:make(map[string]int), Cfbkeymap:make(map[string][]byte)}
 	d,_ := json.Marshal(userdata)
 	appended := username + password
 	user := userlib.PBKDF2Key([]byte(appended), []byte("nosalt"), 64);
@@ -179,20 +183,26 @@ func GetUser(username string, password string) (userdataptr *User, err error){
 //
 // The name of the file should NOT be revealed to the datastore!
 func (userdata *User) StoreFile(filename string, data []byte) {
-	//or username
 	appended := string(userdata.Username) + filename
 	uid,_ := json.Marshal(appended)
-	//fmt.Printf(string(uid))
-	//fmt.Printf("pussy")
-	//fmt.Println()
-	pubkey := userdata.Key.PublicKey
-	//This might be wrong
-	signature,_ := userlib.RSASign(userdata.Key, data)
-	bytes, _ := userlib.RSAEncrypt(&pubkey, data, nil)
-	//fmt.Printf("%v", []byte(signature))
-	//fmt.Println()
-	bytes = append(bytes, []byte(signature)...)
-	userlib.DatastoreSet(string(uid), bytes)
+	iv := randomBytes(userlib.BlockSize)
+	cfb := randomBytes(16)
+	userdata.Sizemap[appended] = len(data)
+	userdata.Cfbkeymap[appended] = cfb
+	//Maybe shouldn't be UID
+	ciphers := userlib.CFBEncrypter(cfb, iv)
+	ciphertext := make([] byte, len(data))
+	ciphers.XORKeyStream(ciphertext, data)
+	mac := userlib.NewHMAC(uid)
+	mac.Write(ciphertext)
+	maca := mac.Sum(nil)
+	fmt.Printf("%d", len([]byte(maca)))
+	bytes := append(iv, ciphertext...)
+	bytes1 := append(bytes, maca...)
+	userlib.DatastoreSet(string(uid), bytes1)
+	d,_ := json.Marshal(userdata)
+	k := userlib.PBKDF2Key([]byte(userdata.Username + userdata.Password), []byte("nosalt"), 64);
+	userlib.DatastoreSet(string(k), d)
 }
 
 
@@ -203,6 +213,14 @@ func (userdata *User) StoreFile(filename string, data []byte) {
 // metadata you need.
 
 func (userdata *User) AppendFile(filename string, data []byte) (err error){
+	//bytes, err := userdata.LoadFile(filename)
+	//if err != nil {
+	//	return err
+	//}
+	//if bytes == nil {
+	//	er := errors.New("no file to append to")
+	//	return er
+	//}
 	return
 }
 
@@ -211,25 +229,46 @@ func (userdata *User) AppendFile(filename string, data []byte) (err error){
 // It should give an error if the file is corrupted in any way.
 func (userdata *User) LoadFile(filename string)(data []byte, err error) {
 	appended := string(userdata.Username) + filename
-
 	uid,_ := json.Marshal(appended)
-	//fmt.Printf(string(uid))
 	val, ok := userlib.DatastoreGet(string(uid))
 	if !ok {
-		fmt.Printf(string(val))
-		fmt.Printf("pussy")
 		return nil, nil
 	}
-	msg := val[0:256]
-	sig := val[256:512]
-	//might have to change name err
-	err = userlib.RSAVerify(&userdata.Key.PublicKey, msg, sig)
-	if err != nil {
+
+	iv := val[0:16]
+	mac := userlib.NewHMAC(uid)
+	mac.Write(val[16:len(val)-32])
+
+	macd := mac.Sum(nil)
+	if !userlib.Equal(macd, val[len(val)-32:]) {
+		fmt.Printf("pussy3")
+		err = errors.New("macs don't match")
 		return nil, err
-	} else {
-		data = msg
-		return data, nil
 	}
+
+	ciphertext := make([] byte, userdata.Sizemap[appended])
+	ciphers := userlib.CFBDecrypter(userdata.Cfbkeymap[appended], iv)
+	ciphers.XORKeyStream(ciphertext, ciphertext)
+	return ciphertext, nil
+
+
+
+
+
+	//msg := val[0:256]
+	//msg, err = userlib.RSADecrypt(userdata.Key, msg, nil)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//sig := val[256:512]
+	////might have to change name err
+	//err = userlib.RSAVerify(&userdata.Key.PublicKey, msg, sig)
+	//if err != nil {
+	//	return nil, err
+	//} else {
+	//	data = msg
+	//	return data, nil
+	//}
 }
 
 // You may want to define what you actually want to pass as a
