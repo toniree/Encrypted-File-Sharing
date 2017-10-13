@@ -17,9 +17,9 @@ func TestInit(t *testing.T){
 	someUsefulThings()
 
 	DebugPrint = false
-	u, err := InitUser("alice","fubar")
-	z,_ := InitUser("bob", "fuckbar")
-	k,_ := InitUser("mallory", "fuck")
+	u, err := InitUser("alice","foo")
+	z,_ := InitUser("bob", "bar")
+	k,_ := InitUser("mallory", "foobar")
 	if err != nil {
 		// t.Error says the test fails 
 		t.Error("Failed to initialize user", err)
@@ -35,18 +35,18 @@ func TestInit(t *testing.T){
 
 func TestStorage(t *testing.T){
 	// And some more tests, because
-	v, err := GetUser("alice", "fubar")
-	v2, err2 := GetUser("alice", "fuckbar")
-	v3, err3 := GetUser("fuck", "this")
+	v, err := GetUser("alice", "foo")
+	v2, err2 := GetUser("alice", "bar")
+	v3, err3 := GetUser("sss", "wrong")
 	if err != nil {
 		t.Error("Failed to reload user", err)
 		return
 	}
 	if err2 == nil {
-		t.Error("fuckbar shouldn't be correct password")
+		t.Error("bar shouldn't be correct password")
 	}
 	if err3 == nil {
-		t.Error("This should've failed.")
+		t.Error("This should've failed. No user sss")
 	}
 	t.Log("Loaded user", v)
 	t.Log("This should be nil", v2)
@@ -55,42 +55,36 @@ func TestStorage(t *testing.T){
 
 func TestStoreAndLoadFile(t *testing.T){
 	// And some more tests, because
-	v, _ := GetUser("alice", "fubar")
-	y, _ := GetUser("bob", "fuckbar")
-	z,_ := GetUser("mallory", "fuck")
+	v, _ := GetUser("alice", "foo")
+	y, _ := GetUser("bob", "bar")
+	z,_ := GetUser("mallory", "foobar")
 	msga := [] byte ("foo")
 	msgaa := [] byte("foofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoo")
 	msgb := [] byte ("bar")
-	v.StoreFile("pussy", msga)
-	v.StoreFile("bushy", msgaa)
-	y.StoreFile("pussy", msgb)
-	bytes, _ := v.LoadFile("pussy")
-	bytes2, _ := y.LoadFile("pussy")
-	bytelong, _ := v.LoadFile("bushy")
+	v.StoreFile("fileshort", msga)
+	v.StoreFile("filelong", msgaa)
+	y.StoreFile("fileshort", msgb)
+	bytes, _ := v.LoadFile("fileshort")
+	bytes2, _ := y.LoadFile("fileshort")
+	bytelong, _ := v.LoadFile("filelong")
 	if !userlib.Equal(bytes, msga) {
-		t.Log(string(bytes))
-		t.Log(string(msga))
 		t.Error("Error, msg corrupted")
 	}
 	if !userlib.Equal(bytelong, msgaa) {
-		t.Log(string(bytelong))
-		t.Log(string(msgaa))
 		t.Error("Block cipher broken")
 	}
 	if !userlib.Equal(bytes2, msgb) {
-		t.Log(bytes2)
-		t.Log(msgb)
 		t.Error("Error, msg corrupted")
 	}
-	bytes3, _ := z.LoadFile("pussy")
+	bytes3, _ := z.LoadFile("fileshort")
 	if bytes3 != nil {
-		t.Error("no filename pussy for mallory, this shouldve been null")
+		t.Error("no filename fileshort for mallory, this shouldve been null")
 	}
-	msgc := [] byte ("fuck")
-	v.AppendFile("pussy", msgc)
-	bytes4, _ := v.LoadFile("pussy")
-	if !userlib.Equal(bytes4, []byte("foofuck")) {
+	msgc := [] byte ("bar")
+	v.AppendFile("fileshort", msgc)
+	bytes4, _ := v.LoadFile("fileshort")
+	if !userlib.Equal(bytes4, []byte("foobar")) {
 		t.Log(string(bytes4))
-		t.Error("Not foofuck")
+		t.Error("Not foobar. Efficient append broken.")
 	}
 }

@@ -173,8 +173,6 @@ func GetUser(username string, password string) (userdataptr *User, err error){
 	return &l,err
 }
 
-
-
 // This stores a file in the datastore.
 //
 // The name of the file should NOT be revealed to the datastore!
