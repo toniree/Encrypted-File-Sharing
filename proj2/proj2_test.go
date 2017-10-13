@@ -3,6 +3,7 @@ package proj2
 import (
 	"testing"
 	"proj2/userlib"
+	//"encoding/json"
 )
 // You can actually import other stuff if you want IN YOUR TEST
 // HARNESS ONLY.  Note that this is NOT considered part of your
@@ -58,45 +59,38 @@ func TestStoreAndLoadFile(t *testing.T){
 	y, _ := GetUser("bob", "fuckbar")
 	z,_ := GetUser("mallory", "fuck")
 	msga := [] byte ("foo")
+	msgaa := [] byte("foofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoo")
 	msgb := [] byte ("bar")
 	v.StoreFile("pussy", msga)
+	v.StoreFile("bushy", msgaa)
 	y.StoreFile("pussy", msgb)
 	bytes, _ := v.LoadFile("pussy")
 	bytes2, _ := y.LoadFile("pussy")
+	bytelong, _ := v.LoadFile("bushy")
 	if !userlib.Equal(bytes, msga) {
+		t.Log(string(bytes))
+		t.Log(string(msga))
 		t.Error("Error, msg corrupted")
 	}
+	if !userlib.Equal(bytelong, msgaa) {
+		t.Log(string(bytelong))
+		t.Log(string(msgaa))
+		t.Error("Block cipher broken")
+	}
 	if !userlib.Equal(bytes2, msgb) {
+		t.Log(bytes2)
+		t.Log(msgb)
 		t.Error("Error, msg corrupted")
 	}
 	bytes3, _ := z.LoadFile("pussy")
 	if bytes3 != nil {
 		t.Error("no filename pussy for mallory, this shouldve been null")
 	}
-	//msgc := [] byte ("foofuck")
-	//v.AppendFile("pussy", msgc)
-	//bytes4, _ := v.LoadFile("pussy")
-	//if !userlib.Equal(bytes4, []byte("foofuck")) {
-	//	t.Error("Not foofuck")
-	//}
-
-
-
-	////mallory tampers v.Load("pussy")
-	//_, err := v.LoadFile("pussy")
-	//if err == nil {
-	//	t.Error("file tampered with, should've errored")
-	//}
-	//err2 := v.AppendFile("pussy", msgc)
-	//if err2 == nil {
-	//	t.Error("shoul've errored, file tampered")
-	//}
-
-
-
-
-
-
-
-
+	msgc := [] byte ("fuck")
+	v.AppendFile("pussy", msgc)
+	bytes4, _ := v.LoadFile("pussy")
+	if !userlib.Equal(bytes4, []byte("foofuck")) {
+		t.Log(string(bytes4))
+		t.Error("Not foofuck")
+	}
 }

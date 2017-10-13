@@ -1,7 +1,10 @@
 package userlib
 import "testing"
 import "encoding/hex"
-import "io"
+import (
+	"io"
+	"fmt"
+)
 
 // Golang has a very powerful routine for building tests.
 
@@ -132,8 +135,9 @@ func TestPBKDF(t *testing.T){
 
 func TestStreamCipher(t *testing.T){
 	key := []byte("example key 1234")
-	msg := "This is a Test"
+	msg := "This is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a TestThis is a Test"
 	ciphertext := make([] byte, BlockSize + len(msg))
+
 	iv := ciphertext[:BlockSize]
 	// Load random data
 	if _, err := io.ReadFull(Reader, iv); err != nil {

@@ -43,7 +43,6 @@ import (
 	// IF you call functions in here directly, YOU WILL LOSE POINTS
 	// EVEN IF YOUR CODE IS CORRECT!!!!!
 	"crypto/rsa"
-	//"crypto/cipher"
 )
 
 
@@ -120,9 +119,6 @@ type User struct {
 	Password string
 	Sizemap map[string]int
 	Cfbkeymap map[string][]byte
-	// You can add other fields here if you want...
-	// Note for JSON to marshal/unmarshal, the fields need to
-	// be public (start with a capital letter)
 }
 
 
@@ -185,20 +181,20 @@ func GetUser(username string, password string) (userdataptr *User, err error){
 func (userdata *User) StoreFile(filename string, data []byte) {
 	appended := string(userdata.Username) + filename
 	uid,_ := json.Marshal(appended)
-	iv := randomBytes(userlib.BlockSize)
-	cfb := randomBytes(16)
+	cfb := randomBytes(userlib.AESKeySize)
 	userdata.Sizemap[appended] = len(data)
 	userdata.Cfbkeymap[appended] = cfb
-	//Maybe shouldn't be UID
+	ciphertext := make([] byte, userlib.BlockSize + len(data))
+	iv := ciphertext[:userlib.BlockSize]
+	if _, err := io.ReadFull(userlib.Reader, iv); err != nil {
+		panic(err)
+	}
 	ciphers := userlib.CFBEncrypter(cfb, iv)
-	ciphertext := make([] byte, len(data))
-	ciphers.XORKeyStream(ciphertext, data)
+	ciphers.XORKeyStream(ciphertext[userlib.BlockSize:], data)
 	mac := userlib.NewHMAC(uid)
-	mac.Write(ciphertext)
+	mac.Write(ciphertext[userlib.BlockSize:])
 	maca := mac.Sum(nil)
-	fmt.Printf("%d", len([]byte(maca)))
-	bytes := append(iv, ciphertext...)
-	bytes1 := append(bytes, maca...)
+	bytes1 := append(ciphertext, maca...)
 	userlib.DatastoreSet(string(uid), bytes1)
 	d,_ := json.Marshal(userdata)
 	k := userlib.PBKDF2Key([]byte(userdata.Username + userdata.Password), []byte("nosalt"), 64);
@@ -213,14 +209,38 @@ func (userdata *User) StoreFile(filename string, data []byte) {
 // metadata you need.
 
 func (userdata *User) AppendFile(filename string, data []byte) (err error){
-	//bytes, err := userdata.LoadFile(filename)
-	//if err != nil {
-	//	return err
-	//}
-	//if bytes == nil {
-	//	er := errors.New("no file to append to")
-	//	return er
-	//}
+	appended := string(userdata.Username) + filename
+	uid,_ := json.Marshal(appended)
+	val, ok := userlib.DatastoreGet(string(uid))
+	if !ok {
+		err = errors.New("File doesn't exist for user")
+		return err
+	}
+	iv := val[0:16]
+	mac := userlib.NewHMAC(uid)
+	mac.Write(val[16:len(val)-32])
+	macd := mac.Sum(nil)
+	if !userlib.Equal(macd, val[len(val)-32:]) {
+		err = errors.New("macs don't match, file probably tampered with.")
+		return err
+	}
+	size := userdata.Sizemap[appended]
+	size = size + len(data)
+	userdata.Sizemap[appended] = size
+	ciphertext := make([] byte,len(data))
+
+	ciphers := userlib.CFBEncrypter(userdata.Cfbkeymap[appended], iv)
+	ciphers.XORKeyStream(ciphertext, data)
+	c := append(val[16:len(val)-32], ciphertext...)
+	mac2 := userlib.NewHMAC(uid)
+	mac2.Write(c)
+	maca := mac2.Sum(nil)
+	bytes1 := append(iv, c...)
+	bytes2:= append(bytes1, maca...)
+	userlib.DatastoreSet(string(uid), bytes2)
+	d,_ := json.Marshal(userdata)
+	k := userlib.PBKDF2Key([]byte(userdata.Username + userdata.Password), []byte("nosalt"), 64);
+	userlib.DatastoreSet(string(k), d)
 	return
 }
 
@@ -234,41 +254,19 @@ func (userdata *User) LoadFile(filename string)(data []byte, err error) {
 	if !ok {
 		return nil, nil
 	}
-
 	iv := val[0:16]
 	mac := userlib.NewHMAC(uid)
 	mac.Write(val[16:len(val)-32])
 
 	macd := mac.Sum(nil)
 	if !userlib.Equal(macd, val[len(val)-32:]) {
-		fmt.Printf("pussy3")
 		err = errors.New("macs don't match")
 		return nil, err
 	}
-
-	ciphertext := make([] byte, userdata.Sizemap[appended])
+	ciphertext := make([] byte, userlib.BlockSize + userdata.Sizemap[appended])
 	ciphers := userlib.CFBDecrypter(userdata.Cfbkeymap[appended], iv)
-	ciphers.XORKeyStream(ciphertext, ciphertext)
-	return ciphertext, nil
-
-
-
-
-
-	//msg := val[0:256]
-	//msg, err = userlib.RSADecrypt(userdata.Key, msg, nil)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//sig := val[256:512]
-	////might have to change name err
-	//err = userlib.RSAVerify(&userdata.Key.PublicKey, msg, sig)
-	//if err != nil {
-	//	return nil, err
-	//} else {
-	//	data = msg
-	//	return data, nil
-	//}
+	ciphers.XORKeyStream(ciphertext[userlib.BlockSize:], val[userlib.BlockSize:len(val)-len(macd)])
+	return ciphertext[userlib.BlockSize:], nil
 }
 
 // You may want to define what you actually want to pass as a
