@@ -86,7 +86,7 @@ func TestHMAC(t *testing.T){
 	msga := [] byte ("foo")
 	msgb := [] byte ("bar")
 	keya := [] byte ("baz")
-	keyb := [] byte ("boop")
+	keyb := [] byte ("boo")
 	
 	mac := NewHMAC(keya)
 	mac.Write(msga)

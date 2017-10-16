@@ -4,6 +4,7 @@ import (
 	"testing"
 	"proj2/userlib"
 	//"encoding/json"
+	//"fmt"
 )
 // You can actually import other stuff if you want IN YOUR TEST
 // HARNESS ONLY.  Note that this is NOT considered part of your
@@ -82,9 +83,50 @@ func TestStoreAndLoadFile(t *testing.T){
 	}
 	msgc := [] byte ("bar")
 	v.AppendFile("fileshort", msgc)
-	bytes4, _ := v.LoadFile("fileshort")
+	bytes4, errs := v.LoadFile("fileshort")
+	if errs != nil {
+		t.Error(errs)
+	}
 	if !userlib.Equal(bytes4, []byte("foobar")) {
-		t.Log(string(bytes4))
 		t.Error("Not foobar. Efficient append broken.")
+	}
+}
+
+func TestSharingAndRevoking(t *testing.T) {
+	v, _ := GetUser("alice", "foo")
+	y, _ := GetUser("bob", "bar")
+	z,_ := GetUser("mallory", "foobar")
+	msga := [] byte ("foo")
+	v.StoreFile("file", msga)
+	sharing,_ := v.ShareFile("file", "bob")
+	y.ReceiveFile("newname", "alice", sharing)
+	msg, _ := y.LoadFile("newname")
+	if !userlib.Equal(msg, msga) {
+		t.Error("File not same")
+	}
+	sharing2, _ := y.ShareFile("newname", "mallory")
+	z.ReceiveFile("soup", "bob", sharing2)
+	msgb,_ := z.LoadFile("soup")
+	if !userlib.Equal(msgb, msga) {
+		t.Error("File not same")
+	}
+	z.AppendFile("soup", msga)
+	orig,_ := v.LoadFile("file")
+	if !userlib.Equal(orig, []byte("foofoo")) {
+		t.Error("Changes not showing to owner")
+	}
+
+	err := z.RevokeFile("soup")
+	if err == nil {
+		t.Error("Should've errored cuz Mallory called revoke on file")
+	}
+	err = v.RevokeFile("file")
+	empty, _ := y.LoadFile("newname")
+	if len(empty) > 0 {
+		t.Error("Should've been empty")
+	}
+	empty, _ = z.LoadFile("soup")
+	if len(empty) > 0 {
+		t.Error("Should've been empty")
 	}
 }
