@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 
 	// For the useful little debug printing function
-	//"fmt"
+	"fmt"
 	"time"
 	"os"
 	"strings"
@@ -43,7 +43,6 @@ import (
 	// IF you call functions in here directly, YOU WILL LOSE POINTS
 	// EVEN IF YOUR CODE IS CORRECT!!!!!
 	"crypto/rsa"
-	"fmt"
 )
 
 
@@ -116,11 +115,9 @@ func debugMsg(format string, args ...interface{}) {
 // The structure definition for a user record
 type User struct {
 	Username string
-	Key *rsa.PrivateKey
-	Password string
-	Cfbkeymap map[string][]byte
-	Files map[string][]byte
-	Owned map[string]bool
+	// You can add other fields here if you want...
+	// Note for JSON to marshal/unmarshal, the fields need to
+	// be public (start with a capital letter)
 }
 
 
@@ -142,21 +139,7 @@ type User struct {
 // You can assume the user has a STRONG password
 func InitUser(username string, password string) (userdataptr *User, err error){
 	var userdata User
-	key, err := userlib.GenerateRSAKey()
-	userdata = User{Username: username, Key: key, Password: password, Cfbkeymap:make(map[string][]byte), Files:make(map[string][]byte), Owned:make(map[string]bool)}
-	d,_ := json.Marshal(userdata)
-	appended := username + password
-	user := userlib.PBKDF2Key([]byte(appended), []byte("nosalt"), 64);
-	userlib.KeystoreSet(username, key.PublicKey)
-	userlib.DatastoreSet(string(user), d)
 	return &userdata, err
-}
-
-func ReloadUser(userdata *User) {
-	d,_ := json.Marshal(userdata)
-	k := userlib.PBKDF2Key([]byte(userdata.Username + userdata.Password), []byte("nosalt"), 64);
-	userlib.DatastoreSet(string(k), d)
-	return;
 }
 
 
@@ -164,51 +147,15 @@ func ReloadUser(userdata *User) {
 // fail with an error if the user/password is invalid, or if the user
 // data was corrupted, or if the user can't be found.
 func GetUser(username string, password string) (userdataptr *User, err error){
-	appended := username + password
-	user := userlib.PBKDF2Key([]byte(appended), []byte("nosalt"), 64);
-	check, valid := userlib.DatastoreGet(string(user));
-	if !valid {
-	    	err = errors.New("Invalid")
-		return nil,err
-	}
-	json.Unmarshal(check,&userdataptr)
-	pkey,_ := userlib.KeystoreGet(username)
-	if !userlib.Equal([]byte(pkey.N.String()), []byte(userdataptr.Key.PublicKey.N.String())) {
-		err = errors.New("Invalid")
-		return nil,err
-	}
-	return userdataptr,err
+	return
 }
+
+
 
 // This stores a file in the datastore.
 //
 // The name of the file should NOT be revealed to the datastore!
 func (userdata *User) StoreFile(filename string, data []byte) {
-	appended := string(userdata.Username) + filename
-	uid,_ := json.Marshal(appended)
-	cfb := randomBytes(userlib.AESKeySize)
-	temp := randomBytes(16)
-	uuuid := bytesToUUID(temp)
-	uuuuid := uuuid[0:16]
-	userdata.Files[string(uid)] = uuuuid
-	userdata.Owned[string(uuuuid)] = true
-	userdata.Cfbkeymap[string(uuuuid)] = cfb
-	ciphertext := make([] byte, userlib.BlockSize + len(data))
-	iv := ciphertext[:userlib.BlockSize]
-	if _, err := io.ReadFull(userlib.Reader, iv); err != nil {
-		panic(err)
-	}
-	ciphers := userlib.CFBEncrypter(cfb, iv)
-	ciphers.XORKeyStream(ciphertext[userlib.BlockSize:], data)
-	mac := userlib.NewHMAC(uuuuid)
-	mac.Write(ciphertext[userlib.BlockSize:])
-	maca := mac.Sum(nil)
-	nextpage := randomBytes(16)
-	uuidd := bytesToUUID(nextpage)
-	bytes := append(uuidd[0:16], ciphertext...)
-	bytes = append(bytes, maca...)
-	userlib.DatastoreSet(string(uuuuid), bytes)
-	ReloadUser(userdata)
 }
 
 
@@ -218,99 +165,20 @@ func (userdata *User) StoreFile(filename string, data []byte) {
 // existing file, but only whatever additional information and
 // metadata you need.
 
-func CheckHMAC(value []byte, mac []byte, uid []byte) (b bool){
-	maca := userlib.NewHMAC(uid)
-	maca.Write(value)
-	macb := maca.Sum(nil)
-	if !userlib.Equal(macb, mac) {
-		return false
-	}
-	return true
-}
-
 func (userdata *User) AppendFile(filename string, data []byte) (err error){
-	appended := string(userdata.Username) + filename
-	uid,_ := json.Marshal(appended)
-	uuuid := userdata.Files[string(uid)]
-	val, ok := userlib.DatastoreGet(string(uuuid))
-	cfb := userdata.Cfbkeymap[string(uuuid)]
-	if !ok {
-		err = errors.New("File doesn't exist for user")
-		return err
-	}
-	uid = val[0:16]
-	ok = true
-	for ok {
-		val, _ = userlib.DatastoreGet(string(uid))
-		if len(val) > 0 {
-			uid = val[0:16]
-
-		} else {
-			ok = false
-		}
-	}
-	newuid := randomBytes(16)
-	newwuid := bytesToUUID(newuid)
-	newwwuid := newwuid[0:16]
-	ciphertext := make([] byte, userlib.BlockSize + len(data))
-	iv := ciphertext[:userlib.BlockSize]
-	if _, err := io.ReadFull(userlib.Reader, iv); err != nil {
-		panic(err)
-	}
-	ciphers := userlib.CFBEncrypter(cfb, iv)
-	ciphers.XORKeyStream(ciphertext[userlib.BlockSize:], data)
-	mac := userlib.NewHMAC(uid)
-	mac.Write(ciphertext[userlib.BlockSize:])
-	maca := mac.Sum(nil)
-
-	bytes := append(newwwuid, ciphertext...)
-	bytes =	append(bytes, maca...)
-	userlib.DatastoreSet(string(uid), bytes)
 	return
 }
 
 // This loads a file from the Datastore.
-// Handle loading appended files!!!
+//
 // It should give an error if the file is corrupted in any way.
 func (userdata *User) LoadFile(filename string)(data []byte, err error) {
-	appended := string(userdata.Username) + filename
-	uid,_ := json.Marshal(appended)
-	uuuid := userdata.Files[string(uid)]
-	var myslice []byte
-	var ok = true
-	cfb := userdata.Cfbkeymap[string(uuuid)]
-	for ok {
-		val, _ := userlib.DatastoreGet(string(uuuid))
-		if len(val) > 48 {
-			iv := val[16:32]
-			if !CheckHMAC(val[32:len(val) - 32], val[len(val) - 32:], uuuid) {
-				err = errors.New("File hampered with")
-				return nil, err
-			}
-			uuuid = val[0:16]
-			ciphertext := make([] byte, userlib.BlockSize + len(val) - 64)
-			ciphers := userlib.CFBDecrypter(cfb, iv)
-			ciphers.XORKeyStream(ciphertext[userlib.BlockSize:], val[userlib.BlockSize + 16 :len(val) - 32])
-			myslice = append(myslice, ciphertext[userlib.BlockSize:]...)
-
-		} else if len(val) > 0{
-			if !CheckHMAC(val[0:16], val[16:], uuuid) {
-				err = errors.New("File hampered with")
-				return nil, err
-			}
-			uuuid = val[0:16]
-		} else {
-			ok = false
-		}
-	}
-	return myslice, nil
+	return
 }
 
 // You may want to define what you actually want to pass as a
 // sharingRecord to serialized/deserialize in the data store.
 type sharingRecord struct {
-	Pointer []byte
-	Cfbkey []byte
 }
 
 
@@ -327,29 +195,7 @@ type sharingRecord struct {
 
 func (userdata *User) ShareFile(filename string, recipient string)(
 	msgid string, err error){
-	var record sharingRecord
-	appended := string(userdata.Username) + filename
-	uid,_ := json.Marshal(appended)
-	uuuid := userdata.Files[string(uid)]
-	rand := randomBytes(16)
-	temp := bytesToUUID(rand)
-	temp2 := temp[0:16]
-	msgid = string(temp2)
-	record = sharingRecord{Pointer:uuuid, Cfbkey:userdata.Cfbkeymap[string(uuuid)]}
-	publickey, ok := userlib.KeystoreGet(recipient)
-	if !ok {
-		err = errors.New("no recipient exists of that name")
-		return "None", err
-	}
-	d,_ := json.Marshal(record)
-	sig, err := userlib.RSASign(userdata.Key, d)
-	bytes, err := userlib.RSAEncrypt(&publickey, d, nil)
-	if err!= nil {
-		return "NONE", err
-	}
-	bytes2 := append(sig, bytes...)
-	userlib.DatastoreSet(msgid, bytes2)
-	return msgid, nil
+	return 
 }
 
 
@@ -359,63 +205,10 @@ func (userdata *User) ShareFile(filename string, recipient string)(
 // it is authentically from the sender.
 func (userdata *User) ReceiveFile(filename string, sender string,
 	msgid string) error {
-	appended := string(userdata.Username) + filename
-	uid,_ := json.Marshal(appended)
-	bytes,ok := userlib.DatastoreGet(msgid)
-	if !ok {
-		return nil
-	}
-	newbytes, err := userlib.RSADecrypt(userdata.Key, bytes[256:], nil)
-	if err != nil {
-		return err
-	}
-	pubkey, ok := userlib.KeystoreGet(sender)
-	if !ok {
-		return nil
-	}
-	err = userlib.RSAVerify(&pubkey, newbytes, bytes[:256])
-	if err != nil {
-		err := errors.New("Sig verification failed")
-		return err
-	}
-	var g sharingRecord
-	json.Unmarshal(newbytes, &g)
-	uuuid := bytesToUUID(randomBytes(16))
-	uuuidd := uuuid[0:16]
-	userdata.Cfbkeymap[string(uuuidd)] = g.Cfbkey
-	userdata.Files[string(uid)] = uuuidd
-	userdata.Owned[string(uuuidd)] = false
-	var myslice []byte
-	mac := userlib.NewHMAC(uuuidd)
-	mac.Write(g.Pointer)
-	maca := mac.Sum(nil)
-	myslice = append(myslice, g.Pointer...)
-	myslice = append(myslice, maca...)
-	ReloadUser(userdata)
-	userlib.DatastoreSet(string(uuuidd), myslice)
 	return nil
 }
 
 // Removes access for all others.  
 func (userdata *User) RevokeFile(filename string) (err error){
-	appended := string(userdata.Username) + filename
-	uid,_ := json.Marshal(appended)
-	uuuid := userdata.Files[string(uid)]
-	if userdata.Owned[string(uuuid)] == false {
-		err = errors.New("Non-owner called revoke")
-		return err
-	}
-	rand := bytesToUUID(randomBytes(16))
-	randto16 := rand[0:16]
-	userdata.Cfbkeymap[string(randto16)] = userdata.Cfbkeymap[string(uuuid)]
-	userdata.Files[string(uid)] = randto16
-	userdata.Owned[string(randto16)] = true
-	val, ok := userlib.DatastoreGet(string(uuuid))
-	if !ok {
-		err = errors.New("Integrity Error")
-		return err
-	}
-	userlib.DatastoreSet(string(randto16), val)
-	userlib.DatastoreDelete(string(uuuid))
-	return
+	return 
 }
