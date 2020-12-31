@@ -15,7 +15,7 @@ func TestInit(t *testing.T){
 	DebugPrint = false
 	u, err := InitUser("alice","foo")
 	z,_ := InitUser("bob", "bar")
-	k,_ := InitUser("mallory", "fuckbar")
+	k,_ := InitUser("mallory", "fookbar")
 	if err != nil {
 		// t.Error says the test fails 
 		t.Error("Failed to initialize user", err)
@@ -25,7 +25,6 @@ func TestInit(t *testing.T){
 	t.Log("Got user", z)
 	t.Log("Got user", k)
 	//userlib.DatastoreClear()
-	// You probably want many more tests here.
 }
 
 
@@ -53,7 +52,7 @@ func TestStoreAndLoadFile(t *testing.T){
 	// And some more tests, because
 	v, _ := GetUser("alice", "foo")
 	y, _ := GetUser("bob", "bar")
-	z,_ := GetUser("mallory", "fuckbar")
+	z,_ := GetUser("mallory", "fookbar")
 	msga := [] byte ("foo")
 	msgaa := [] byte("foofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoofoo")
 	msgb := [] byte ("bar")
@@ -90,7 +89,7 @@ func TestStoreAndLoadFile(t *testing.T){
 func TestSharingAndRevoking(t *testing.T) {
 	v, _ := GetUser("alice", "foo")
 	y, _ := GetUser("bob", "bar")
-	z,_ := GetUser("mallory", "fuckbar")
+	z,_ := GetUser("mallory", "fookbar")
 	msga := [] byte ("foo")
 	v.StoreFile("file", msga)
 	sharing,_ := v.ShareFile("file", "bob")

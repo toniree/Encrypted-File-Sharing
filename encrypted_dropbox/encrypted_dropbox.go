@@ -1,14 +1,9 @@
 package encrypted_dropbox
 
 
-// You MUST NOT change what you import.  If you add ANY additional
-// imports it will break the autograder, and we will be Very Upset.
-
 import (
 
-	// You neet to add with
-	// go get github.com/nweaver/cs161-p2/userlib
-	"github.com/nweaver/cs161-p2/userlib"
+	
 
 	// Life is much easier with json:  You are
 	// going to want to use this so you can easily
@@ -36,12 +31,7 @@ import (
 	// Want to import errors
 	"errors"
 	
-	// These are imported for the structure definitions.  You MUST
-	// not actually call the functions however!!!
-	// You should ONLY call the cryptographic functions in the
-	// userlib, as for testing we may add monitoring functions.
-	// IF you call functions in here directly, YOU WILL LOSE POINTS
-	// EVEN IF YOUR CODE IS CORRECT!!!!!
+	
 	"crypto/rsa"
 )
 
