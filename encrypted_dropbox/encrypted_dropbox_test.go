@@ -1,14 +1,9 @@
-package proj2
+package encrypted_dropbox
 
 import (
 	"testing"
-	"proj2/userlib"
-	//"encoding/json"
-	//"fmt"
+	"encrypted_dropbox/userlib"
 )
-// You can actually import other stuff if you want IN YOUR TEST
-// HARNESS ONLY.  Note that this is NOT considered part of your
-// solution, but is how you make sure your solution is correct.
 
 func TestInit(t *testing.T){
 	userlib.DatastoreClear()

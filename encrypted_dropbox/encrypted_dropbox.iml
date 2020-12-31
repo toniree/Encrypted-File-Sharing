@@ -12,6 +12,6 @@
     <content url="file://$MODULE_DIR$" />
     <orderEntry type="jdk" jdkName="Go 1.9.1" jdkType="Go SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" exported="" name="GOPATH &lt;proj2&gt;" level="project" />
+    <orderEntry type="library" exported="" name="GOPATH &lt;encrypted_dropbox&gt;" level="project" />
   </component>
 </module>

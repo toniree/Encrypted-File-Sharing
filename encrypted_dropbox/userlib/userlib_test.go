@@ -6,6 +6,8 @@ import (
 	"fmt"
 )
 
+// Part of provided libcode from Berkeley's Computer Security class project
+
 // Golang has a very powerful routine for building tests.
 
 // Run with "go test" to run the tests
